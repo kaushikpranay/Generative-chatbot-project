@@ -19,7 +19,7 @@ load_dotenv()
 #-----------
 #1. llm
 #-------------
-llm = ChatOllama(model='deepseek-r1:1.5b')
+llm = ChatOllama(model='qwen3:8b')
 
 #2. tools
 

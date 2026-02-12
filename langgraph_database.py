@@ -10,7 +10,7 @@ import sqlite3
 
 load_dotenv()
 
-llm = ChatOllama(model = 'deepseek-r1:1.5b')
+llm = ChatOllama(model = 'qwen3:8b')
 
 class ChatState(TypedDict):
     messages: Annotated[list[BaseMessage], add_messages]

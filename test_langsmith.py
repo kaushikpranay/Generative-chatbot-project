@@ -7,7 +7,7 @@ from langchain_core.messages import HumanMessage
 load_dotenv()
 
 # This will automatically generate or give a view on of log on Langsmith
-llm = ChatOllama(model="gpt-oss:20b")
+llm = ChatOllama(model="qwen3:8b")
 response = llm.invoke([HumanMessage(content="Hello, Langsmith!")])
 print(response.content)
 print("\nCheck Langsmith dashboard for trace!")

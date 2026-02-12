@@ -20,8 +20,8 @@ import requests
 
 
 load_dotenv()
-llm = ChatOllama(model ="gpt-oss:20b")
-embeddings = OllamaEmbeddings(model="gpt-oss:20b")
+llm = ChatOllama(model ="qwen3:8b")
+embeddings = OllamaEmbeddings(model="qwen3-embedding:8b")
 
 # -------------------
 # 2. PDF retriever store (per thread)

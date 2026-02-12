@@ -10,7 +10,7 @@ from langsmith import traceable
 from langsmith.run_helpers import get_current_run_tree
 load_dotenv()
 
-llm = ChatOllama(model = os.getenv("OLLAMA_MODEL", "deepseek-r1:1.5b"))
+llm = ChatOllama(model = os.getenv("OLLAMA_MODEL", "qwen3:8b"))
 class ChatState(TypedDict):
     messages: Annotated[list[BaseMessage], add_messages]
 
@@ -30,7 +30,7 @@ def chat_node(state: ChatState):
         run_tree.extra = {
             "message_count": len(state["message"]),
             "thread_id": state.get("thread_id"),
-            "model": "gpt-oss:20b"
+            "model": "qwen3:8b"
         }
     return {"messages": [response]}
 
