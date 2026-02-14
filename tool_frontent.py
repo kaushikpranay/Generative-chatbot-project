@@ -22,7 +22,7 @@ def load_conversation(thread_id):
     state = chatbot.get_state(config={"configurable": {"thread_id": thread_id}})
 
     #check if message key exists in state values, return empty list if not
-    return state.values.get("messasges", [])
+    return state.values.get("messages", [])
 
 
 #====================Session Initialization====================

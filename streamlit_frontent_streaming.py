@@ -1,3 +1,5 @@
+#streamlit_frontend_streaming.py
+
 import streamlit as st
 from langgraph_backend import chatbot
 from langchain_core.messages import HumanMessage
@@ -11,7 +13,7 @@ if 'message_history' not in st.session_state:
 
 #loading the conversation history
 for message in st.session_state['message_history']:
-    with st.chat_messge(message['role']):
+    with st.chat_message(message['role']):
         st.text(message['content'])
 
 user_input = st.chat_input("Type here")

@@ -1,4 +1,4 @@
-import langsmith as st
+import streamlit as st  # CORRECT
 from langsmith_config import LangSmithMonitor
 import plotly.express as px
 

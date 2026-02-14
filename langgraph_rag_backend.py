@@ -3,13 +3,14 @@ from __future__ import annotations
 import os
 import sqlite3
 import tempfile
+import secrets
 from typing import Annotated, Any, Dict, Optional, TypedDict
 from dotenv import load_dotenv
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_community.tools import DuckDuckGoSearchRun
 from langchain_community.vectorstores import FAISS
-from langchain_core.messages import BaseMessage, SystemMessage
+from langchain_core.messages import BaseMessage, SystemMessage, HumanMessage
 from langchain_core.tools import tool
 from langchain_ollama import ChatOllama, OllamaEmbeddings
 from langgraph.checkpoint.sqlite import SqliteSaver
@@ -18,9 +19,8 @@ from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode, tools_condition
 import requests
 
-
 load_dotenv()
-llm = ChatOllama(model ="qwen3:8b")
+llm = ChatOllama(model="qwen3:8b")
 embeddings = OllamaEmbeddings(model="qwen3-embedding:8b")
 
 # -------------------
@@ -29,18 +29,15 @@ embeddings = OllamaEmbeddings(model="qwen3-embedding:8b")
 _THREAD_RETRIEVERS: Dict[str, Any] = {}
 _THREAD_METADATA: Dict[str, dict] = {}
 
-
 def _get_retriever(thread_id: Optional[str]):
     """Fetch the retriever for a thread if available."""
     if thread_id and thread_id in _THREAD_RETRIEVERS:
         return _THREAD_RETRIEVERS[thread_id]
     return None
 
-
 def ingest_pdf(file_bytes: bytes, thread_id: str, filename: Optional[str] = None) -> dict:
     """
     Build a FAISS retriever for the uploaded PDF and store it for the thread.
-
     Returns a summary dict that can be surfaced in the UI.
     """
     if not file_bytes:
@@ -77,18 +74,15 @@ def ingest_pdf(file_bytes: bytes, thread_id: str, filename: Optional[str] = None
             "chunks": len(chunks),
         }
     finally:
-        # The FAISS store keeps copies of the text, so the temp file is safe to remove.
         try:
             os.remove(temp_path)
         except OSError:
             pass
 
-
 # -------------------
 # 3. Tools
 # -------------------
 search_tool = DuckDuckGoSearchRun(region="us-en")
-
 
 @tool
 def calculator(first_num: float, second_num: float, operation: str) -> dict:
@@ -119,7 +113,6 @@ def calculator(first_num: float, second_num: float, operation: str) -> dict:
     except Exception as e:
         return {"error": str(e)}
 
-
 @tool
 def get_stock_price(symbol: str) -> dict:
     """
@@ -132,7 +125,6 @@ def get_stock_price(symbol: str) -> dict:
     )
     r = requests.get(url)
     return r.json()
-
 
 @tool
 def rag_tool(query: str, thread_id: Optional[str] = None) -> dict:
@@ -158,7 +150,6 @@ def rag_tool(query: str, thread_id: Optional[str] = None) -> dict:
         "source_file": _THREAD_METADATA.get(str(thread_id), {}).get("filename"),
     }
 
-
 tools = [search_tool, get_stock_price, calculator, rag_tool]
 llm_with_tools = llm.bind_tools(tools)
 
@@ -167,7 +158,6 @@ llm_with_tools = llm.bind_tools(tools)
 # -------------------
 class ChatState(TypedDict):
     messages: Annotated[list[BaseMessage], add_messages]
-
 
 # -------------------
 # 5. Nodes
@@ -192,7 +182,6 @@ def chat_node(state: ChatState, config=None):
     response = llm_with_tools.invoke(messages, config=config)
     return {"messages": [response]}
 
-
 tool_node = ToolNode(tools)
 
 # -------------------
@@ -200,6 +189,19 @@ tool_node = ToolNode(tools)
 # -------------------
 conn = sqlite3.connect(database="chatbot.db", check_same_thread=False)
 checkpointer = SqliteSaver(conn=conn)
+
+# Create metadata table
+cursor = conn.cursor()
+cursor.execute("""
+    CREATE TABLE IF NOT EXISTS thread_metadata (
+        thread_id TEXT PRIMARY KEY,
+        display_name TEXT,
+        is_deleted INTEGER DEFAULT 0,
+        share_token TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+""")
+conn.commit()
 
 # -------------------
 # 7. Graph
@@ -218,15 +220,98 @@ chatbot = graph.compile(checkpointer=checkpointer)
 # 8. Helpers
 # -------------------
 def retrieve_all_threads():
-    all_threads = set()
-    for checkpoint in checkpointer.list(None):
-        all_threads.add(checkpoint.config["configurable"]["thread_id"])
-    return list(all_threads)
-
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT thread_id FROM thread_metadata 
+        WHERE is_deleted = 0
+        ORDER BY created_at DESC
+    """)
+    rows = cursor.fetchall()
+    return [row[0] for row in rows]
 
 def thread_has_document(thread_id: str) -> bool:
     return str(thread_id) in _THREAD_RETRIEVERS
 
-
 def thread_document_metadata(thread_id: str) -> dict:
     return _THREAD_METADATA.get(str(thread_id), {})
+
+def get_thread_display_name(thread_id: str) -> str:
+    cursor = conn.cursor()
+    cursor.execute("SELECT display_name FROM thread_metadata WHERE thread_id = ?", (str(thread_id),))
+    row = cursor.fetchone()
+    return row[0] if row and row[0] else str(thread_id)
+
+def set_thread_display_name(thread_id: str, display_name: str):
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO thread_metadata (thread_id, display_name)
+        VALUES (?, ?)
+        ON CONFLICT(thread_id) DO UPDATE SET display_name = ?
+    """, (str(thread_id), display_name, display_name))
+    conn.commit()
+
+def auto_name_thread_from_first_message(thread_id: str, first_message: str):
+    if len(first_message) <= 20:
+        display_name = first_message
+    else:
+        display_name = first_message[:20] + "..."
+    set_thread_display_name(thread_id, display_name)
+
+def delete_thread(thread_id: str):
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO thread_metadata (thread_id, is_deleted)
+        VALUES (?, 1)
+        ON CONFLICT(thread_id) DO UPDATE SET is_deleted = 1
+    """, (str(thread_id),))
+    conn.commit()
+
+def rename_thread(thread_id: str, new_name: str):
+    set_thread_display_name(thread_id, new_name)
+
+def generate_share_token(thread_id: str) -> str:
+    cursor = conn.cursor()
+    cursor.execute("SELECT share_token FROM thread_metadata WHERE thread_id = ?", (str(thread_id),))
+    row = cursor.fetchone()
+    
+    if row and row[0]:
+        return row[0]
+    
+    token = secrets.token_urlsafe(16)
+    cursor.execute("""
+        INSERT INTO thread_metadata (thread_id, share_token)
+        VALUES (?, ?)
+        ON CONFLICT(thread_id) DO UPDATE SET share_token = ?
+    """, (str(thread_id), token, token))
+    conn.commit()
+    return token
+
+def export_thread_conversation(thread_id: str) -> dict:
+    state = chatbot.get_state(config={'configurable': {'thread_id': str(thread_id)}})
+    messages = state.values.get('messages', [])
+    
+    conversation = []
+    for msg in messages:
+        if isinstance(msg, HumanMessage):
+            role = 'user'
+        elif not isinstance(msg, SystemMessage):
+            role = 'assistant'
+        else:
+            continue
+        conversation.append({'role': role, 'content': msg.content})
+    
+    return {
+        'thread_id': str(thread_id),
+        'display_name': get_thread_display_name(thread_id),
+        'conversation': conversation,
+        'has_document': thread_has_document(thread_id),
+        'document_info': thread_document_metadata(thread_id)
+    }
+
+def ensure_thread_exists(thread_id: str):
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT OR IGNORE INTO thread_metadata (thread_id, is_deleted)
+        VALUES (?, 0)
+    """, (str(thread_id),))
+    conn.commit()

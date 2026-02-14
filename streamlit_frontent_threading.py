@@ -1,3 +1,5 @@
+#streamlit_frontent_tool.py
+
 import streamlit as st
 from langgraph_tool_backend import chatbot
 from langchain_core.messages import HumanMessage, AIMessage
@@ -12,16 +14,16 @@ def generate_thread_id():
 def reset_chat():
     thread_id = generate_thread_id()
     st.session_state['thread_id'] = thread_id
-    add_thread(St.session_state['thread_id'])
+    add_thread(st.session_state['thread_id'])
     st.session_state['message_history']=[]
 
 def add_thread(thread_id):
-    if thread_id not_in st.session_state['chat_threads']:
+    if thread_id not in st.session_state['chat_threads']:
         st.session_state['chat_threads'].append(thread_id)
 
 def load_conversation(thread_id):
     state = chatbot.get_state(config={'configurable': {'thread_id': thread_id}})
-    return state.values.get('messsages', [])
+    return state.values.get('messages', [])
 
 
 #========================Session Setup===================
@@ -37,7 +39,7 @@ if 'chat_threads' not in st.session_state:
 add_thread(st.session_state['thread_id'])
 
 
- **************************************** Sidebar UI *********************************
+#  **************************************** Sidebar UI *********************************
 
 st.sidebar.title('LangGraph Chatbot')
 
