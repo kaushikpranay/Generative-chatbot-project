@@ -1,6 +1,7 @@
 import streamlit as st
 from langgraph_tool_backend import chatbot, retrieve_all_threads
 from langchain_core.messages import HumanMessage, AIMessage, ToolMessage
+from typing import Any, cast
 import uuid
 
 
@@ -19,9 +20,9 @@ def add_thread(thread_id):
         st.session_state["chat_threads"].append(thread_id)
 
 def load_conversation(thread_id):
-    state = chatbot.get_state(config={"configurable": {"thread_id": thread_id}})
+    state = chatbot.get_state(config=cast(Any, {"configurable": {"thread_id": thread_id}}))
 
-    #check if message key exists in state values, return empty list if not
+    # check if message key exists in state values, return empty list if not
     return state.values.get("messages", [])
 
 
@@ -79,12 +80,12 @@ if user_input:
     # Assistant streaming block
     with st.chat_message("assistant"):
         # Use a mutable holder so the generator can set/modify it
-        status_holder = {"box": None}
+        status_holder: dict[str, Any] = {"box": None}
 
         def ai_only_stream():
             for message_chunk, metadata in chatbot.stream(
                 {"messages": [HumanMessage(content=user_input)]},
-                config=CONFIG,
+                config=cast(Any, CONFIG),
                 stream_mode="messages",
             ):
                 # Lazily create & update the SAME status container when any tool runs

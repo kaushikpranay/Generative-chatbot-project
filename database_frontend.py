@@ -11,6 +11,7 @@ from langgraph_database import (
     ensure_thread_exists
 )
 from langchain_core.messages import HumanMessage
+from typing import Any, cast
 import uuid
 import json
 
@@ -33,7 +34,7 @@ def add_thread(thread_id):
     ensure_thread_exists(str(thread_id))
 
 def load_conversation(thread_id):
-    state = chatbot.get_state(config={'configurable': {'thread_id': thread_id}})
+    state = chatbot.get_state(config=cast(Any, {'configurable': {'thread_id': thread_id}}))
     return state.values.get('messages', [])
 
 #==========================session setup===========================
@@ -185,12 +186,14 @@ if user_input:
 
     # Stream assistant response
     with st.chat_message('assistant'):
-        ai_message = st.write_stream(
-            message_chunk.content for message_chunk, metadata in chatbot.stream(
+        def _stream_gen():
+            for message_chunk, metadata in chatbot.stream(
                 {'messages': [HumanMessage(content=user_input)]},
-                config=CONFIG,
+                config=cast(Any, CONFIG),
                 stream_mode='messages'
-            )
-        )
+            ):
+                yield getattr(message_chunk, 'content', message_chunk)
+
+        ai_message = st.write_stream(_stream_gen())
 
     st.session_state['message_history'].append({'role': 'assistant', 'content': ai_message})

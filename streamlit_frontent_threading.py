@@ -3,6 +3,7 @@
 import streamlit as st
 from langgraph_tool_backend import chatbot
 from langchain_core.messages import HumanMessage, AIMessage
+from typing import Any, cast
 import uuid
 
 #=================================utility functions=================================
@@ -22,7 +23,7 @@ def add_thread(thread_id):
         st.session_state['chat_threads'].append(thread_id)
 
 def load_conversation(thread_id):
-    state = chatbot.get_state(config={'configurable': {'thread_id': thread_id}})
+    state = chatbot.get_state(config=cast(Any, {'configurable': {'thread_id': thread_id}}))
     return state.values.get('messages', [])
 
 
@@ -88,7 +89,7 @@ if user_input:
         def ai_only_stream():
             for message_chunk, metadata in chatbot.stream(
                 {"messages": [HumanMessage(content=user_input)]},
-                config=CONFIG,
+                config=cast(Any, CONFIG),
                 stream_mode="messages"
             ):
                 if isinstance(message_chunk, AIMessage):

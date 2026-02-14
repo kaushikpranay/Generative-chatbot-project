@@ -3,6 +3,7 @@
 import streamlit as st
 from langgraph_backend import chatbot
 from langchain_core.messages import HumanMessage
+from typing import Any, cast
 
 #st.session_state -> dict ->
 CONFIG = {'configurable': {'thread_id': 'thread-1'}}
@@ -24,12 +25,14 @@ if user_input:
         st.text(user_input)
 
     with st.chat_message('assistant'):
-        ai_message = st.write_stream(
-            message_chunk.content for message_chunk, metadata in chatbot.stream(
+        def _stream_gen():
+            for message_chunk, metadata in chatbot.stream(
                 {'messages': [HumanMessage(content=user_input)]},
-                config= {'configurable': {'thread_id': 'thread-1'}},
-                stream_mode= 'messages'
-            )
-        )
+                config=cast(Any, {'configurable': {'thread_id': 'thread-1'}}),
+                stream_mode='messages'
+            ):
+                yield getattr(message_chunk, 'content', message_chunk)
+
+        ai_message = st.write_stream(_stream_gen())
 
     st.session_state['message_history'].append({'role':'assistant', 'content': ai_message})

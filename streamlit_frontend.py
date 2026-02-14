@@ -3,6 +3,7 @@
 import streamlit as st
 from langgraph_backend import chatbot
 from langchain_core.messages import HumanMessage
+from typing import Any, cast
 import streamlit as st
 from langsmith_config import LangSmithMonitor
 
@@ -31,7 +32,7 @@ if user_input:
     with st.chat_message('user'):
         st.text(user_input)
 
-    response = chatbot.invoke({'messages': [HumanMessage(content=user_input)]}, config=CONFIG)
+    response = chatbot.invoke({'messages': [HumanMessage(content=user_input)]}, config=cast(Any, CONFIG))
     
     ai_message = response['messages'][-1].content
     # first add the message to message_history

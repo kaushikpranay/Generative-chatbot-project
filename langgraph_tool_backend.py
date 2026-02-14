@@ -6,6 +6,7 @@ from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode, tools_condition
 from langchain_community.tools import DuckDuckGoSearchRun
+from typing import Any, cast
 from langchain_core.tools import tool
 from dotenv import load_dotenv
 import sqlite3
@@ -21,7 +22,7 @@ llm = ChatOllama(model='qwen3:8b')
 
 #2. tools
 
-search_tool = DuckDuckGoSearchRun(region="us-en")
+search_tool = DuckDuckGoSearchRun()
 
 @tool
 def calculator(first_num: float, second_num: float, operation: str) -> dict:
@@ -181,7 +182,7 @@ def generate_share_token(thread_id: str) -> str:
 
 def export_thread_conversation(thread_id: str) -> dict:
     """Export thread conversation as JSON"""
-    state = chatbot.get_state(config={'configurable': {'thread_id': str(thread_id)}})
+    state = chatbot.get_state(config=cast(Any, {'configurable': {'thread_id': str(thread_id)}}))
     messages = state.values.get('messages', [])
     
     conversation = []

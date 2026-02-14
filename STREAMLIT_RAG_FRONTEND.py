@@ -14,6 +14,7 @@ from langgraph_rag_backend import (
     thread_document_metadata
 )
 from langchain_core.messages import HumanMessage, AIMessage, ToolMessage, SystemMessage
+from typing import Any, cast
 import uuid
 import json
 
@@ -34,7 +35,7 @@ def add_thread(thread_id):
     ensure_thread_exists(str(thread_id))
 
 def load_conversation(thread_id):
-    state = chatbot.get_state(config={"configurable": {"thread_id": thread_id}})
+    state = chatbot.get_state(config=cast(Any, {"configurable": {"thread_id": thread_id}}))
     return state.values.get("messages", [])
 
 # ======================= Session Initialization ===================
@@ -211,12 +212,12 @@ if user_input:
 
     # Assistant streaming block
     with st.chat_message("assistant"):
-        status_holder = {"box": None}
+        status_holder: dict[str, Any] = {"box": None}
 
         def ai_only_stream():
             for message_chunk, metadata in chatbot.stream(
                 {"messages": [HumanMessage(content=user_input)]},
-                config=CONFIG,
+                config=cast(Any, CONFIG),
                 stream_mode="messages",
             ):
                 if isinstance(message_chunk, ToolMessage):

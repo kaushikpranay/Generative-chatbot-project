@@ -16,6 +16,7 @@ from langgraph_mcp_backend import (
     submit_async_task
 )
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+from typing import Any, cast
 
 # =========================== Utilities ===========================
 def generate_thread_id():
@@ -34,7 +35,7 @@ def add_thread(thread_id):
     ensure_thread_exists(str(thread_id))
 
 def load_conversation(thread_id):
-    state = chatbot.get_state(config={"configurable": {"thread_id": thread_id}})
+    state = chatbot.get_state(config=cast(Any, {"configurable": {"thread_id": thread_id}}))
     return state.values.get("messages", [])
 
 # ======================= Session Initialization ===================
@@ -179,7 +180,7 @@ if user_input:
 
     # Assistant streaming block
     with st.chat_message("assistant"):
-        status_holder = {"box": None}
+        status_holder: dict[str, Any] = {"box": None}
 
         def ai_only_stream():
             event_queue: queue.Queue = queue.Queue()
@@ -188,7 +189,7 @@ if user_input:
                 try:
                     async for message_chunk, metadata in chatbot.astream(
                         {"messages": [HumanMessage(content=user_input)]},
-                        config=CONFIG,
+                        config=cast(Any, CONFIG),
                         stream_mode="messages",
                     ):
                         event_queue.put((message_chunk, metadata))

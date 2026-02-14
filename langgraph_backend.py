@@ -42,7 +42,8 @@ class ChatState(TypedDict, total=False):
 def chat_node(state: ChatState):
 
     # invoke LLM with full message history
-    response = llm.invoke(state["messages"])
+    messages = state.get("messages", [])
+    response = llm.invoke(messages)
 
     # attach metadata to LangSmith run
     run_tree = get_current_run_tree()

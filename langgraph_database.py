@@ -1,6 +1,6 @@
 from pydantic.v1.fields import FieldInfo as FieldInfoV1
 from langgraph.graph import StateGraph, START, END
-from typing import TypedDict, Annotated
+from typing import TypedDict, Annotated, Optional, Any, cast
 from langchain_core.messages import BaseMessage, HumanMessage
 from langchain_ollama import ChatOllama
 from langgraph.checkpoint.sqlite import SqliteSaver
@@ -109,7 +109,7 @@ def generate_share_token(thread_id: str) -> str:
     conn.commit()
     return token
 
-def get_thread_by_share_token(share_token: str) -> str:
+def get_thread_by_share_token(share_token: str) -> Optional[str]:
     """Get thread_id from share token"""
     cursor = conn.cursor()
     cursor.execute("SELECT thread_id FROM thread_metadata WHERE share_token = ?", (share_token,))
@@ -118,7 +118,7 @@ def get_thread_by_share_token(share_token: str) -> str:
 
 def export_thread_conversation(thread_id: str) -> dict:
     """Export thread conversation as JSON"""
-    state = chatbot.get_state(config={'configurable': {'thread_id': str(thread_id)}})
+    state = chatbot.get_state(config=cast(Any, {'configurable': {'thread_id': str(thread_id)}}))
     messages = state.values.get('messages', [])
     
     conversation = []

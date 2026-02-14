@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_community.tools import DuckDuckGoSearchRun
+from typing import Any, cast
 from langchain_community.vectorstores import FAISS
 from langchain_core.messages import BaseMessage, SystemMessage, HumanMessage
 from langchain_core.tools import tool
@@ -83,7 +84,7 @@ def ingest_pdf(file_bytes: bytes, thread_id: str, filename: Optional[str] = None
 # -------------------
 # 3. Tools
 # -------------------
-search_tool = DuckDuckGoSearchRun(region="us-en")
+search_tool = DuckDuckGoSearchRun()
 
 @tool
 def calculator(first_num: float, second_num: float, operation: str) -> dict:
@@ -180,7 +181,7 @@ def chat_node(state: ChatState, config=None):
     )
 
     messages = [system_message, *state["messages"]]
-    response = llm_with_tools.invoke(messages, config=config)
+    response = llm_with_tools.invoke(messages, config=cast(Any, config))
     return {"messages": [response]}
 
 tool_node = ToolNode(tools)

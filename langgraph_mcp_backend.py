@@ -6,6 +6,7 @@ from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode, tools_condition
 from langchain_community.tools import DuckDuckGoSearchRun
+from typing import Any, cast
 from langchain_core.tools import tool, BaseTool
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from dotenv import load_dotenv
@@ -35,7 +36,7 @@ def submit_async_task(coro):
 llm = ChatOllama(model="qwen3:8b")
 
 #2.tools
-search_tool = DuckDuckGoSearchRun(region="us-en")
+search_tool = DuckDuckGoSearchRun()
 
 @tool
 def get_stock_price(symbol: str) -> dict:
@@ -214,7 +215,7 @@ def generate_share_token(thread_id: str) -> str:
     return run_async(_generate_share_token(thread_id))
 
 async def _export_thread_conversation(thread_id: str) -> dict:
-    state = await chatbot.aget_state(config={'configurable': {'thread_id': str(thread_id)}})
+    state = await chatbot.aget_state(config=cast(Any, {'configurable': {'thread_id': str(thread_id)}}))
     messages = state.values.get('messages', [])
     
     conversation = []
