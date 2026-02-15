@@ -1,9 +1,5 @@
-import queue
-import uuid
-import json
-
 import streamlit as st
-from langgraph_mcp_backend import (
+from backend.langgraph_rag_backend import (
     chatbot,
     retrieve_all_threads,
     get_thread_display_name,
@@ -13,10 +9,14 @@ from langgraph_mcp_backend import (
     export_thread_conversation,
     auto_name_thread_from_first_message,
     ensure_thread_exists,
-    submit_async_task
+    ingest_pdf,
+    thread_has_document,
+    thread_document_metadata
 )
-from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+from langchain_core.messages import HumanMessage, AIMessage, ToolMessage, SystemMessage
 from typing import Any, cast
+import uuid
+import json
 
 # =========================== Utilities ===========================
 def generate_thread_id():
@@ -60,11 +60,32 @@ if "rename_thread_id" not in st.session_state:
 add_thread(st.session_state["thread_id"])
 
 # ============================ Sidebar ============================
-st.sidebar.title("LangGraph MCP Chatbot")
+st.sidebar.title("LangGraph RAG Chatbot")
 
 if st.sidebar.button("➕ New Chat", use_container_width=True):
     reset_chat()
     st.rerun()
+
+# PDF Upload Section
+st.sidebar.header("📄 Upload PDF")
+uploaded_file = st.sidebar.file_uploader("Upload a PDF for this chat", type=["pdf"])
+
+if uploaded_file:
+    if st.sidebar.button("Process PDF"):
+        with st.sidebar.spinner("Processing PDF..."):
+            file_bytes = uploaded_file.read()
+            result = ingest_pdf(
+                file_bytes, 
+                str(st.session_state["thread_id"]), 
+                uploaded_file.name
+            )
+            st.sidebar.success(f"✅ Processed: {result['filename']}")
+            st.sidebar.info(f"📊 {result['documents']} pages, {result['chunks']} chunks")
+
+# Show current document status
+if thread_has_document(str(st.session_state["thread_id"])):
+    doc_info = thread_document_metadata(str(st.session_state["thread_id"]))
+    st.sidebar.success(f"📑 Active: {doc_info.get('filename', 'Unknown')}")
 
 st.sidebar.header("My Conversations")
 
@@ -94,17 +115,28 @@ for thread_id in st.session_state["chat_threads"]:
     thread_id_str = str(thread_id)
     display_name = get_thread_display_name(thread_id_str)
     
+    # Add PDF indicator if thread has document
+    prefix = "📄 " if thread_has_document(thread_id_str) else ""
+    
     col1, col2 = st.sidebar.columns([5, 1])
     
     with col1:
-        if st.button(display_name, key=f"thread_{thread_id_str}", use_container_width=True):
+        if st.button(
+            f"{prefix}{display_name}", 
+            key=f"thread_{thread_id_str}", 
+            use_container_width=True
+        ):
             st.session_state["thread_id"] = thread_id
             messages = load_conversation(thread_id)
             
             temp_messages = []
             for msg in messages:
-                role = "user" if isinstance(msg, HumanMessage) else "assistant"
-                temp_messages.append({"role": role, "content": msg.content})
+                if isinstance(msg, HumanMessage):
+                    role = "user"
+                    temp_messages.append({"role": role, "content": msg.content})
+                elif isinstance(msg, AIMessage):
+                    role = "assistant"
+                    temp_messages.append({"role": role, "content": msg.content})
             
             st.session_state["message_history"] = temp_messages
             st.session_state["is_first_message"] = False
@@ -183,31 +215,11 @@ if user_input:
         status_holder: dict[str, Any] = {"box": None}
 
         def ai_only_stream():
-            event_queue: queue.Queue = queue.Queue()
-
-            async def run_stream():
-                try:
-                    async for message_chunk, metadata in chatbot.astream(
-                        {"messages": [HumanMessage(content=user_input)]},
-                        config=cast(Any, CONFIG),
-                        stream_mode="messages",
-                    ):
-                        event_queue.put((message_chunk, metadata))
-                except Exception as exc:
-                    event_queue.put(("error", exc))
-                finally:
-                    event_queue.put(None)
-
-            submit_async_task(run_stream())
-
-            while True:
-                item = event_queue.get()
-                if item is None:
-                    break
-                message_chunk, metadata = item
-                if message_chunk == "error":
-                    raise metadata
-
+            for message_chunk, metadata in chatbot.stream(
+                {"messages": [HumanMessage(content=user_input)]},
+                config=cast(Any, CONFIG),
+                stream_mode="messages",
+            ):
                 if isinstance(message_chunk, ToolMessage):
                     tool_name = getattr(message_chunk, "name", "tool")
                     if status_holder["box"] is None:

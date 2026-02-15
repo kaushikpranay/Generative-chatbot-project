@@ -1,5 +1,5 @@
 # Quick test script
-from langgraph_backend import chatbot
+from backend.langgraph_backend import chatbot
 from langchain_core.messages import HumanMessage
 
 state = {"messages": [HumanMessage(content="Hi i am kaushik")]}

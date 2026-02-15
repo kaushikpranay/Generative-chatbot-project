@@ -1,5 +1,5 @@
 import streamlit as st
-from langgraph_database import (
+from backend.langgraph_database import (
     chatbot, 
     retrieve_all_threads,
     get_thread_display_name,

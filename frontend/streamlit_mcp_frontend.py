@@ -1,5 +1,9 @@
+import queue
+import uuid
+import json
+
 import streamlit as st
-from langgraph_tool_backend import (
+from backend.langgraph_mcp_backend import (
     chatbot,
     retrieve_all_threads,
     get_thread_display_name,
@@ -8,12 +12,11 @@ from langgraph_tool_backend import (
     generate_share_token,
     export_thread_conversation,
     auto_name_thread_from_first_message,
-    ensure_thread_exists
+    ensure_thread_exists,
+    submit_async_task
 )
-from langchain_core.messages import HumanMessage, AIMessage, ToolMessage
+from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from typing import Any, cast
-import uuid
-import json
 
 # =========================== Utilities ===========================
 def generate_thread_id():
@@ -57,7 +60,7 @@ if "rename_thread_id" not in st.session_state:
 add_thread(st.session_state["thread_id"])
 
 # ============================ Sidebar ============================
-st.sidebar.title("LangGraph Chatbot")
+st.sidebar.title("LangGraph MCP Chatbot")
 
 if st.sidebar.button("➕ New Chat", use_container_width=True):
     reset_chat()
@@ -180,11 +183,31 @@ if user_input:
         status_holder: dict[str, Any] = {"box": None}
 
         def ai_only_stream():
-            for message_chunk, metadata in chatbot.stream(
-                {"messages": [HumanMessage(content=user_input)]},
-                config=cast(Any, CONFIG),
-                stream_mode="messages",
-            ):
+            event_queue: queue.Queue = queue.Queue()
+
+            async def run_stream():
+                try:
+                    async for message_chunk, metadata in chatbot.astream(
+                        {"messages": [HumanMessage(content=user_input)]},
+                        config=cast(Any, CONFIG),
+                        stream_mode="messages",
+                    ):
+                        event_queue.put((message_chunk, metadata))
+                except Exception as exc:
+                    event_queue.put(("error", exc))
+                finally:
+                    event_queue.put(None)
+
+            submit_async_task(run_stream())
+
+            while True:
+                item = event_queue.get()
+                if item is None:
+                    break
+                message_chunk, metadata = item
+                if message_chunk == "error":
+                    raise metadata
+
                 if isinstance(message_chunk, ToolMessage):
                     tool_name = getattr(message_chunk, "name", "tool")
                     if status_holder["box"] is None:

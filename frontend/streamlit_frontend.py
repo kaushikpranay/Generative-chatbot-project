@@ -1,7 +1,7 @@
 #streamlit_frontend.py
 
 import streamlit as st
-from langgraph_backend import chatbot
+from backend.langgraph_backend import chatbot
 from langchain_core.messages import HumanMessage
 from typing import Any, cast
 import streamlit as st

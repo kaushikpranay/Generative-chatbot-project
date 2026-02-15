@@ -1,5 +1,5 @@
 import streamlit as st
-from langgraph_tool_backend import chatbot, retrieve_all_threads
+from backend.langgraph_tool_backend import chatbot, retrieve_all_threads
 from langchain_core.messages import HumanMessage, AIMessage, ToolMessage
 from typing import Any, cast
 import uuid
